@@ -25,9 +25,9 @@ eputchar(int c)
 #include "defs.h"
 
 /* Keep scalars early to get compact addressing modes. */
-int curloc;
-int lexval;
-int token;
+int curloc;   //当前pc位置
+int lexval;   //当前符号在符号表中的索引，或者当前常量值
+int token;    //当前词法分析到的单词
 int pusharg;
 int thechar;
 int nglob;
@@ -47,7 +47,7 @@ int funids[NFUN];
 int funoffs[NFUN];
 int localids[NLOCAL];
 
-char symbol[MAXSYM];
+char symbol[MAXSYM];    //当前字符串
 char code[MAXCODE];
 char names[MAXNAMES];
 #define NAMES "return\0if\0else\0while\0do\0int\0char\0getchar\0putchar\0eputchar\0exit"
@@ -99,7 +99,7 @@ eqstr(char *p, char *q)
 }
 
 int
-lookup(char *name)
+lookup(char *name)            //查找符合表，返回name在表中的位置，如果没找到，则加入符号表
 {
     int i;
     char *ns;
@@ -108,7 +108,7 @@ lookup(char *name)
     i = 0;
     while(i < nsym) {
 	if (eqstr(ns, name)) {
-	    return i;
+	    return i;               //返回*name是names数组中的第几个字符串
 	}
 	while(*ns++)
 	    ;
@@ -116,11 +116,11 @@ lookup(char *name)
     }
     while(*ns++ = *name++)
 	;
-    return nsym++;
+    return nsym++;                 //如果不在，则把*name加入符号表names
 }
 
 int
-next()
+next()                            //读入下一个字符， 返回当前字符
 {
     int r;
 
@@ -130,7 +130,7 @@ next()
 }
 
 int
-gobble(int t, int rr, int r)
+gobble(int t, int rr, int r)    //如果当前字符是t，则读入下一个字符，并返回rr，否则返回r
 {
     if (thechar == t) {
 	next();
@@ -140,7 +140,7 @@ gobble(int t, int rr, int r)
 }
 
 int
-getstring(int delim)
+getstring(int delim)      //读入一个符号字符串到symbol
 {
     int c;
 
@@ -157,7 +157,7 @@ getstring(int delim)
 }
 
 int
-instr(char *s, int c)
+instr(char *s, int c)               //如果c在*s里面，则返回1，否则返回0
 {
     while(*s) {
 	if (*s++ == c)
@@ -166,19 +166,20 @@ instr(char *s, int c)
     return 0;
 }
 
+//词法分析， 返回下一个词
 int
 getlex()
 {
     int c;
     char *p;
 
-    while( 0 <= (c = next()) && c <= ' ')	/* consider all control chars as whitespace */
+    while( 0 <= (c = next()) && c <= ' ') //ASCII 0到32之间都是控制字符，不可显示。32是空格。	/* consider all control chars as whitespace */
 	;
 
     if (c == -1 || instr("()[]{},;", c)) {
 	return c;
     }
-    if (c == '/') {
+    if (c == '/') {               //处理注释或者 除号
 	if (thechar == '*') {
 	    /* next(); dropping this is wrong */
 	    while(next() != '*' || thechar != '/')
@@ -191,7 +192,7 @@ getlex()
     if (c == '*') return T_MUL;
     if (c == '%') return T_MOD;
     if (c == '-')
-	return gobble(c,T_POSTDEC,T_SUB);
+	return gobble(c,T_POSTDEC,T_SUB);    //gobble是为了对付 两个字符的运算符。
     if (c == '>')
 	return gobble('=',T_GE,T_GT);
     if (c == '<')
@@ -208,14 +209,14 @@ getlex()
 	return gobble(c,T_OROR,T_OR);
     if (c == '\'') {
 	getstring(c);
-	lexval = symbol[0];
+	lexval = symbol[0];          // 字符常量
 	return T_CONST;
     }
     if (c == '"') {
 	getstring(c);
 	return T_STRING;
     }
-    if (digit(c)) {
+    if (digit(c)) {             //常量计算
 	lexval = c - '0';
 	while(digit(thechar)) {
 	    lexval = lexval * 10 + next() - '0';
@@ -228,10 +229,10 @@ getlex()
 	while(letter(thechar))
 	    *p++ = next();
 	*p = 0;
-	if ( (lexval = lookup(symbol)) < RES) {
-	    if (lexval == I_CHAR)
+	if ( (lexval = lookup(symbol)) < RES) {        //是符号表中的前7个符号
+	    if (lexval == I_CHAR)                      //当前符号是 "char" 
 		return T_INT;
-	    return lexval + RESBASE;
+	    return lexval + RESBASE;                   //512,513,...519
 	}
 	return T_NAME;
     }
@@ -256,6 +257,7 @@ expect(int t)
     }
 }
 
+// int,char,char*,int*
 int
 type()
 {
@@ -264,6 +266,7 @@ type()
 	;
 }
 
+//取名字的index （变量，函数...)
 int
 name()
 {
@@ -283,18 +286,19 @@ emit(int opc)
 }
 
 int
-emitat(int a, int c)
+emitat(int a, int c)      //在位置a，写入字节码c
 {
     code[a++] = c;
     code[a] = c/256;
 }
 
+//产生一个三个字节的指令？
 int
 emitop(int rator, int rand)
 {
     int r;
 
-    emit(rator+LITMAX);
+    emit(rator+LITMAX);     
     r = curloc;
     emit(rand);
     emit(rand/256);
@@ -303,6 +307,7 @@ emitop(int rator, int rand)
 
 #define emitj emitop
 
+//查看*arr中有没有当前lexval对应的值，有责返回该index
 int
 pushloop(int puop, int max, int *arr)
 {
@@ -327,19 +332,19 @@ pushval()
     int lval;
 
     lval = 1;
-    if (pushloop(C_PUSHAL, nlocal, localids)) {
-    } else if (pushloop(C_PUSHAA, narg, argids)) {
+    if (pushloop(C_PUSHAL, nlocal, localids)) {     //push argument local
+    } else if (pushloop(C_PUSHAA, narg, argids)) {  //push argument arguments
 	pusharg = narg-pusharg-1;
-    } else if (pushloop(C_PUSHAG, nglob, globids)) {
+    } else if (pushloop(C_PUSHAG, nglob, globids)) {  //push argument global 
 	lval = globscalar[pusharg];
 	pusharg = globoffs[pusharg];
     } else {
 	lval = 0;
-	if (pushloop(C_PUSHAC, nfun, funids)) {
+	if (pushloop(C_PUSHAC, nfun, funids)) {       //PUSH AC?  C表示什么？
 	    pusharg = funoffs[pusharg];
 	} else if (lexval < RES+NPRECALL) {
 	    /* predefined function is the last possibility, reuse C_PUSHAC */
-	    pusharg = lexval-RES;
+	    pusharg = lexval-RES;  //第一个预置的函数getchar在符号表里的序号正好是7 （RES的取值） 
 	} else {
 	    error("undefined variable");
 	}
@@ -413,7 +418,7 @@ expr(int needval, int prec)
 		} while(istoken(','));
 		expect(')');
 	    }
-	    emitop(C_CALL, na*2);
+	    emitop(C_CALL, na*2);     //na是参数个数？
 	    islval = 0;
 	} else if (istoken('[')) {
 	    /* array ref */
@@ -463,6 +468,7 @@ expr(int needval, int prec)
     return islval;
 }
 
+//表达式求值
 int
 pexpr()
 {
@@ -471,6 +477,7 @@ pexpr()
     expect(')');
 }
 
+//编译一条语句
 int
 stmt()
 {
@@ -586,12 +593,13 @@ main()
     char *q;
 
     /* Initialize symbol table */
-    nsym = RES+NPRECALL;
-    p = names;
-    q = NAMES;
-    n = NAMESSIZE;
+    nsym = RES+NPRECALL;            //7+4 = 11
+    p = names;                      //char names[MAXNAMES];
+    q = NAMES;                      //"return\0if\0else\0while\0do\0int\0char\0getchar\0putchar\0eputchar\0exit"
+
+    n = NAMESSIZE;                 //62
     do
-	*p++ = *q++;
+	*p++ = *q++;               //初始化names数组
     while(n--);
 
     curloc = 10;	/* some space to avoid low addrs */
@@ -606,10 +614,10 @@ main()
     emitop(C_CALL, 0);
     emit(C_EXIT);
     
-    putchar(n);
+    putchar(n);                   //输出字节码长度
     putchar(n/256);
     p = code;
-    while(n--) {
+    while(n--) {                  //输出生成的字节码
 	putchar(*p++);
     }
     return 0;

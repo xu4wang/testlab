@@ -28,3 +28,5 @@ test: parse interp parse.oc
 
 clean:
 	rm -f parse interp parse.oc *.oo fac *.[12] fac.out.cc
+	rm -Rf parse.dSYM/
+	rm -Rf interp.dSYM/

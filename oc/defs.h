@@ -83,7 +83,7 @@
 #define LITLIM 32
 
 /* operations with one operand */
-#define C_PUSHAA	 32
+#define C_PUSHAA	 32       //C_xxx和下面的 X_xxx 是一条指令的两种表示方法。字节码中用C_xxx, 但由于指令都是16的整数倍，所以用倍数也可以表示一条指令。 X 是乘号，表示倍数。
 #define X_PUSHAA	  2
 #define C_PUSHA		 48
 #define X_PUSHA		  3
@@ -121,5 +121,5 @@
 
 #define DEFSTK 16
 
-#define NPRECALL 4
+#define NPRECALL 4       //number of prefedined call
 
