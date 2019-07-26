@@ -1,0 +1,4 @@
+name: test_dart
+description: Learn Dart project.
+dependencies:
+  test:
